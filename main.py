@@ -58,21 +58,21 @@ async def build_digest():
 async def send_daily(app):
     await app.bot.send_message(chat_id=CHAT_ID, text=await build_digest(), parse_mode='Markdown')
 
+async def post_init(app):
+    scheduler = AsyncIOScheduler(timezone='Asia/Taipei')
+    scheduler.add_job(lambda: asyncio.create_task(send_daily(app)), 'cron', hour=8, minute=0)
+    scheduler.start()
+    print('Bot 啟動中...')
+
 def main():
     db.init_db()
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('add', add_cmd))
     app.add_handler(CommandHandler('list', list_cmd))
     app.add_handler(CommandHandler('done', done_cmd))
     app.add_handler(CommandHandler('today', today_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    scheduler = AsyncIOScheduler(timezone='Asia/Taipei')
-    scheduler.add_job(lambda: asyncio.create_task(send_daily(app)), 'cron', hour=8, minute=0)
-    scheduler.start()
-
-    print('Bot 啟動中...')
     app.run_polling()
 
 if __name__ == '__main__':
