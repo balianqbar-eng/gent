@@ -6,10 +6,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date
 import db
 
-QUANT_URL = os.environ.get('QUANT_URL', 'https://balian-quant-production.up.railway.app')
-
-TOKEN   = os.environ['TELEGRAM_TOKEN']
-CHAT_ID = os.environ['CHAT_ID']
+QUANT_URL   = os.environ.get('QUANT_URL', 'https://balian-quant-production.up.railway.app')
+TOKEN       = os.environ['TELEGRAM_TOKEN']
+CHAT_ID     = os.environ['CHAT_ID']
+WEBHOOK_URL = os.environ.get('WEBHOOK_URL', 'https://reminder-bot-production-6453.up.railway.app')
+PORT        = int(os.environ.get('PORT', 8080))
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -93,7 +94,11 @@ def main():
     app.add_handler(CommandHandler('today', today_cmd))
     app.add_handler(CommandHandler('status', status_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
+    app.run_webhook(
+        listen='0.0.0.0',
+        port=PORT,
+        webhook_url=f'{WEBHOOK_URL}/webhook',
+    )
 
 if __name__ == '__main__':
     main()
