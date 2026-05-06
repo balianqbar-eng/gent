@@ -1,9 +1,12 @@
 import os, asyncio
+import aiohttp
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date
 import db
+
+QUANT_URL = os.environ.get('QUANT_URL', 'https://balian-quant-production.up.railway.app')
 
 TOKEN   = os.environ['TELEGRAM_TOKEN']
 CHAT_ID = os.environ['CHAT_ID']
@@ -15,6 +18,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         '/list      → 查看待辦\n'
         '/done 任務 → 完成任務\n'
         '/today     → 立即查看日報\n'
+        '/status    → 查詢系統連線狀態\n'
         '或直接說「記住 XXX」也可以！'
     )
 
@@ -44,6 +48,21 @@ async def done_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     db.mark_done(task)
     await update.message.reply_text(f'已完成「{task}」')
 
+async def status_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f'{QUANT_URL}/health', timeout=aiohttp.ClientTimeout(total=6)) as r:
+                data = await r.json()
+        bot_ok = 'online'
+        xq_ok  = 'online' if data.get('xq_bridge') else 'offline'
+    except Exception:
+        bot_ok = 'offline'
+        xq_ok  = 'offline'
+    await update.message.reply_text(
+        f'*系統連線狀態*\n\nBalian Quant API：`{bot_ok}`\nXQ Bridge：`{xq_ok}`',
+        parse_mode='Markdown'
+    )
+
 async def today_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(await build_digest(), parse_mode='Markdown')
 
@@ -72,6 +91,7 @@ def main():
     app.add_handler(CommandHandler('list', list_cmd))
     app.add_handler(CommandHandler('done', done_cmd))
     app.add_handler(CommandHandler('today', today_cmd))
+    app.add_handler(CommandHandler('status', status_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
 
